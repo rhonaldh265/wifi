@@ -1,0 +1,277 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WiFi Billing System</title>
+<style>
+body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(to bottom, #009966 75%, #ff3300 100%); margin: 0; padding: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+.container { width: 90%; max-width: 800px; padding: 25px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
+h1 { text-align: center; color: #0078D7; }
+p { text-align: center; color: #333; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fafafa; border-radius: 10px; overflow: hidden; }
+th, td { padding: 12px; text-align: center; }
+th { background: #0078D7; color: white; }
+tr:nth-child(even) { background: #f1f1f1; }
+button { padding: 8px 16px; border: none; background: #0078D7; color: white; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+button:hover { background: #005bb5; transform: scale(1.05); }
+.modal { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+.modal-content { background: #e7f3ff; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; box-shadow: 0 0 20px rgba(0,0,0,0.2); text-align: left; position: relative; }
+.close-btn { position: absolute; top: 10px; right: 15px; background: transparent; border: none; color: #333; font-size: 20px; cursor: pointer; }
+input, textarea { width: 100%; margin-top: 6px; margin-bottom: 12px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+label { font-weight: 500; }
+.footer { text-align: center; color: #555; margin-top: 25px; font-size: 14px; }
+#transactionsTable { margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>HOME NETWORK</h1>
+<h5>call 0727016623</h5>
+<!-- Free 2-minute access button -->
+<div style="text-align:center; margin:40px;">
+    <h3 style="font-family: Arial, sans-serif; color: #333;">Get 2 Minutes Free Access 🎁</h3>
+    <button id="freeAccessBtn" style="
+        background-color: #28a745; 
+        color: white; 
+        border: none; 
+        padding: 15px 30px; 
+        font-size: 18px; 
+        font-weight: bold;
+        border-radius: 12px;
+        cursor: pointer;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+    ">
+        Connect 2 Minutes Free
+    </button>
+</div>
+
+<script>
+document.getElementById('freeAccessBtn').addEventListener('click', () => {
+    const deviceMac = "demo_mac_001";
+
+    fetch('payment.php', {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+        body: `type=free&mac=${deviceMac}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success){
+            alert(data.message);
+            window.location.href = "wifi_home.html";
+        } else {
+            alert("Error granting free access");
+        }
+    })
+    .catch(err => console.error(err));
+});
+
+// Add hover effect
+const btn = document.getElementById('freeAccessBtn');
+btn.addEventListener('mouseover', () => {
+    btn.style.backgroundColor = "#218838";
+    btn.style.transform = "scale(1.05)";
+});
+btn.addEventListener('mouseout', () => {
+    btn.style.backgroundColor = "#28a745";
+    btn.style.transform = "scale(1)";
+});
+</script>
+
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Price (Ksh)</th>
+<th>Duration</th>
+<th>Bonus</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="packageTable"></tbody>
+</table>
+
+<h3>Paid Transactions</h3>
+<table id="transactionsTable">
+<thead>
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>Amount</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody id="transactionsBody"></tbody>
+</table>
+
+<div class="footer">© 2025 WiFi Billing System </div>
+</div>
+
+<div class="modal" id="paymentModal">
+<div class="modal-content">
+<button class="close-btn" onclick="closeModal()">&times;</button>
+<h3>Complete Purchase</h3>
+<label>Customer name</label>
+<input type="text" placeholder="e.g. Ronald towett" id="custName">
+<label>Phone (M-Pesa number)</label>
+<input type="text" placeholder="07XXXXXXXX" id="custPhone">
+<label>Agreement</label><br>
+<input type="checkbox" id="agree"> I agree<br><br>
+
+<button onclick="resetForm()">Reset</button>
+<button onclick="initiatePayment()">Initiate Payment</button>
+</div>
+</div>
+
+<script>
+const packages = [
+{ name: "Basic", price: 2, duration: "30 min", bonus: "10 " },
+{ name: "Standard", price: 18, duration: "1 hour", bonus: "20 min" },
+{ name: "Bronze", price: 38, duration: "2 hours", bonus: "30 min" },
+{ name: "Silver", price: 48, duration: "6 hours", bonus: " 60 min" },
+{ name: "Gold", price: 88, duration: "1 day", bonus: "80 min" },
+{ name: "Platinum", price: 100, duration: "2 days", bonus: "15 hour" }
+];
+
+const table = document.getElementById("packageTable");
+const transactionsBody = document.getElementById("transactionsBody");
+const modal = document.getElementById("paymentModal");
+let selectedPackage = null;
+
+packages.forEach((pkg, index) => {
+const row = document.createElement("tr");
+row.innerHTML = `<td>${pkg.name}</td><td>${pkg.price}</td><td>${pkg.duration}</td><td>${pkg.bonus}</td><td><button onclick="openModal(${index})">Buy Now</button></td>`;
+table.appendChild(row);
+});
+
+function openModal(index){ selectedPackage = packages[index]; modal.style.display = "flex"; }
+function closeModal(){ modal.style.display = "none"; resetForm(); }
+function resetForm(){ document.getElementById("custName").value = ""; document.getElementById("custPhone").value = ""; document.getElementById("agree").checked = false; }
+
+function initiatePayment(){
+    let name = document.getElementById("custName").value.trim();
+    let phone = document.getElementById("custPhone").value.trim();
+
+    if(!name || !phone || !document.getElementById("agree").checked){ 
+        alert("Complete all fields and agree to terms."); 
+        return; 
+    }
+
+    let amount = selectedPackage.price;
+    if(phone.startsWith("0")) phone = "254"+phone.substring(1);
+
+    fetch('payment.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `amount=${amount}&phone=${phone}&name=${name}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Initial response:", data); // Debug log
+        
+        // Check for successful STK push initiation
+        if(data.ResponseCode === "0" || data.responseCode === "0" || data.ResponseCode === 0){
+            alert("STK Push sent! Waiting for payment confirmation...");
+
+            const checkoutID = data.CheckoutRequestID || data.checkoutRequestID || data.CheckoutRequestId;
+            if (!checkoutID) {
+                alert("Error: No checkout ID received");
+                return;
+            }
+            
+            let pollCount = 0;
+            const maxPolls = 30; // 30 attempts * 3 seconds = 90 seconds total
+            
+            const pollPaymentStatus = () => {
+                pollCount++;
+                
+                if(pollCount > maxPolls) {
+                    clearInterval(pollInterval);
+                    alert("Payment confirmation timeout. Please check with your MPESA.");
+                    return;
+                }
+                
+                console.log(`Polling attempt ${pollCount} for checkoutID: ${checkoutID}`);
+                
+                fetch(`payment.php?checkoutID=${encodeURIComponent(checkoutID)}&action=confirm`)
+                .then(res => res.json())
+                .then(status => {
+                    console.log("Polling response:", status);
+                    
+                    // Check if we have a valid result code
+                    if (status && status.ResultCode !== undefined && status.ResultCode !== null) {
+                        clearInterval(pollInterval);
+                        
+                        if(status.ResultCode === "0" || status.ResultCode === 0) {
+                            alert("✅ Payment successful! You can now connect to WiFi.");
+                            // Add transaction to table
+                            const newRow = document.createElement("tr");
+                            const now = new Date();
+                            newRow.innerHTML = `<td>${name}</td><td>${phone}</td><td>${amount}</td><td>${now.toLocaleString()}</td>`;
+                            transactionsBody.appendChild(newRow);
+                            // Optionally redirect to WiFi page
+                            // window.location.href = "wifi_home.html";
+                        } else {
+                            alert(`❌ Payment failed. Code: ${status.ResultCode}, Message: ${status.ResultDesc || 'Unknown error'}`);
+                        }
+                    }
+                    // Also check for alternate response format
+                    else if (status && status.resultCode !== undefined && status.resultCode !== null) {
+                        clearInterval(pollInterval);
+                        
+                        if(status.resultCode === "0" || status.resultCode === 0) {
+                            alert("✅ Payment successful! You can now connect to WiFi.");
+                            const newRow = document.createElement("tr");
+                            const now = new Date();
+                            newRow.innerHTML = `<td>${name}</td><td>${phone}</td><td>${amount}</td><td>${now.toLocaleString()}</td>`;
+                            transactionsBody.appendChild(newRow);
+                        } else {
+                            alert(`❌ Payment failed. Code: ${status.resultCode}, Message: ${status.resultDesc || 'Unknown error'}`);
+                        }
+                    }
+                    // Check for direct success message
+                    else if (status && status.success) {
+                        clearInterval(pollInterval);
+                        alert("✅ Payment successful! You can now connect to WiFi.");
+                        const newRow = document.createElement("tr");
+                        const now = new Date();
+                        newRow.innerHTML = `<td>${name}</td><td>${phone}</td><td>${amount}</td><td>${now.toLocaleString()}</td>`;
+                        transactionsBody.appendChild(newRow);
+                    }
+                    // If still processing, continue polling
+                }).catch(err => {
+                    console.error("Polling error:", err);
+                    // Don't stop polling on network errors, continue trying
+                });
+            };
+            
+            // Start polling immediately and then every 3 seconds
+            const pollInterval = setInterval(pollPaymentStatus, 3000);
+            pollPaymentStatus(); // Immediate first check
+
+        } else { 
+            const errorMsg = data.errorMessage || data.ResponseDescription || data.message || "Unknown error";
+            alert("Error initiating payment: " + errorMsg); 
+        }
+    })
+    .catch(err => {
+        console.error("Fetch error:", err);
+        alert("Network error. Please try again.");
+    });
+    
+
+    
+    closeModal();
+}
+
+window.onclick = function(event){ 
+    if(event.target === modal){ 
+        closeModal(); 
+    } 
+}
+</script>
+</body>
+</html>
